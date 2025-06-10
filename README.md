@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 def load_seismic_data(filepath):
     """
-    Carga datos sísmicos desde un archivo SAC, MSEED u otros formatos soportados por ObsPy
+    Carga los datos sísmicos desde un archivo SAC, MSEED u otros formatos soportados por ObsPy
     """
     st = read(filepath)
     return st
@@ -38,7 +38,7 @@ def preprocess_seismic_data(stream, lowcut=0.5, highcut=10.0, fs=100.0, order=4)
 
 def create_dataset(data, window_size=100, step_size=10):
     """
-    Crea ventanas deslizantes para el entrenamiento de modelos
+ Divide los datos en bloques que se van moviendo poco a poco para entrenar mejor al modelo
     """
     X = []
     for i in range(0, len(data) - window_size, step_size):
@@ -88,7 +88,7 @@ EPOCHS = 100
 
 def load_and_preprocess_data(data_dir):
     """
-    Carga y preprocesa todos los datos sísmicos en el directorio
+Lee todos los registros sísmicos del directorio especificado y aplica las transformaciones necesarias (como normalización, limpieza o segmentación) para su posterior procesamiento.
     """
     all_data = []
     labels = []
