@@ -293,3 +293,93 @@ if __name__ == "__main__":
     
     train_models(args.data_dir, args.output_dir)
 ```
+```python
+import os
+import numpy as np
+import tensorflow as tf
+from utils.preprocessing import load_seismic_data, preprocess_seismic_data, create_dataset
+import pickle
+
+def load_model_and_encoder(model_dir):
+    """
+    Carga el modelo y el label encoder
+    """
+    # Cargar el mejor modelo (o puedes cargar uno específico)
+    model_path = os.path.join(model_dir, 'best_model.h5')
+    if not os.path.exists(model_path):
+        model_path = os.path.join(model_dir, 'cnn_lstm_model.h5')  # fallback
+    
+    model = tf.keras.models.load_model(model_path)
+    
+    # Cargar el label encoder
+    with open(os.path.join(model_dir, 'label_encoder.pkl'), 'rb') as f:
+        label_encoder = pickle.load(f)
+    
+    return model, label_encoder
+
+def predict_seismic_event(filepath, model, label_encoder, window_size=200):
+    """
+    Realiza una predicción sobre un nuevo archivo sísmico
+    """
+    # Cargar y preprocesar datos
+    stream = load_seismic_data(filepath)
+    processed = preprocess_seismic_data(stream)
+    
+    # Crear ventanas (usamos solo el primer canal si hay múltiples)
+    windows = create_dataset(processed[0], window_size, step_size=window_size)
+    
+    # Reshape para el modelo
+    if len(model.input_shape) == 3:  # CNN o LSTM
+        X_new = windows.reshape(windows.shape[0], windows.shape[1], 1)
+    elif len(model.input_shape) == 4:  # CNN-LSTM
+        X_new = windows.reshape(windows.shape[0], 1, windows.shape[1], 1)
+    
+    # Hacer predicciones
+    predictions = model.predict(X_new)
+    predicted_classes = np.argmax(predictions, axis=1)
+    predicted_labels = label_encoder.inverse_transform(predicted_classes)
+    
+    # Obtener probabilidades
+    probabilities = np.max(predictions, axis=1)
+    
+    # Agregar resultados por ventana
+    results = []
+    for i in range(len(predicted_labels)):
+        results.append({
+            'window': i,
+            'predicted_class': predicted_labels[i],
+            'probability': float(probabilities[i]),
+            'all_probabilities': predictions[i].tolist()
+        })
+    
+    return results
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Realiza predicciones con modelos entrenados.')
+    parser.add_argument('--filepath', type=str, required=True,
+                       help='Ruta al archivo sísmico para predecir')
+    parser.add_argument('--model_dir', type=str, default='models',
+                       help='Directorio con los modelos entrenados')
+    
+    args = parser.parse_args()
+    
+    # Cargar modelo y encoder
+    model, label_encoder = load_model_and_encoder(args.model_dir)
+    
+    # Realizar predicción
+    results = predict_seismic_event(args.filepath, model, label_encoder)
+    
+    # Mostrar resultados
+    print("\nResultados de la predicción:")
+    for result in results:
+        print(f"Ventana {result['window']}:")
+        print(f"  Clase predicha: {result['predicted_class']}")
+        print(f"  Probabilidad: {result['probability']:.4f}")
+        print("  Probabilidades por clase:")
+        for i, prob in enumerate(result['all_probabilities']):
+            print(f"    {label_encoder.classes_[i]}: {prob:.4f}")
+        print()
+```
+
