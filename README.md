@@ -1,4 +1,4 @@
-# analisis_sismicos.py
+# an-lisis_sismicos.py
 ```python
 import numpy as np
 import pandas as pd
